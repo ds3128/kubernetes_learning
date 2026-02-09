@@ -1,0 +1,61 @@
+#All steps to install kubernetes cluster :
+
+1. Define the ip address for your labs machines.
+2. Define the name of any machines.
+3. On control plane and workers nodes, add the following command :
+    - printf "\n192.168.1.94 master\n192.168.1.96 worker1\n192.168.1.97 worker2\n\n" >> /etc/hosts
+    - printf "overlay\nbr_netfilter\n" >> /etc/modules-load.d/containerd.conf
+    - modprobe overlay
+      modprobe br_netfilter
+    - printf "net.bridge.bridge-nf-call-iptables = 1\nnet.ipv4.ip_forward = 1\nnet.bridge.bridge-nf-call-ip6tables = 1\n" >> /etc/sysctl.d/99-kubernetes-cri.conf
+    - sysctl --system
+    - wget https://github.com/containerd/containerd/releases/download/v2.1.4/containerd-2.1.4-linux-amd64.tar.gz -P /tmp/
+    - tar Cxzvf /usr/local /tmp/containerd-2.1.4-linux-amd64.tar.gz
+    - wget https://raw.githubusercontent.com/containerd/containerd/main/containerd.service -P /etc/systemd/system/
+    - systemctl daemon-reload
+    - systemctl enable --now containerd
+    - wget https://github.com/opencontainers/runc/releases/download/v1.3.0/runc.amd64 -P /tmp/ && install -m 755 /tmp/runc.amd64 /usr/local/sbin/runc
+    - wget https://github.com/containernetworking/plugins/releases/download/v1.7.1/cni-plugins-linux-amd64-v1.7.1.tgz -P /tmp/
+    - mkdir -p /opt/cni/bin
+    - tar Cxzvf /opt/cni/bin /tmp/cni-plugins-linux-amd64-v1.7.1.tgz
+    - mkdir -p /etc/containerd
+      containerd config default | tee /etc/containerd/config.toml
+    - nano /etc/containerd/config.toml
+      - Change SystemdCgroup = false to SystemdCgroup = true
+    - systemctl restart containerd
+    - swapoff -a  <<<<<<<< just disable it in /etc/fstab instead using nano /etc/fstab
+    - apt-get update && apt-get install -y apt-transport-https ca-certificates curl gpg
+    - mkdir -p -m 755 /etc/apt/keyrings
+    - curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.33/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    - echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.33/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+    - apt-get update
+    - reboot
+    - sudo su
+    - apt-get install -y kubelet=1.33.4-1.1 kubeadm=1.33.4-1.1 kubectl=1.33.4-1.1
+    - apt-mark hold kubelet kubeadm kubectl
+    - # check swap config, ensure swap is 0
+      free -m
+4. On control plane node, add the following command :
+    - kubeadm init --pod-network-cidr 10.10.0.0/16 --kubernetes-version 1.33.4 --node-name master
+    - export KUBECONFIG=/etc/kubernetes/admin.conf
+    - # add Calico 3.30.2 CNI  <<<<<< edit the CIDR for pods if its custom
+    - kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.30.2/manifests/tigera-operator.yaml
+    - wget https://raw.githubusercontent.com/projectcalico/calico/v3.30.2/manifests/custom-resources.yaml
+    - nano custom-resources.yaml <<<<< edit the cidr to match the one used in kubeadm init
+    - kubectl apply -f custom-resources.yaml
+    - # check all pods in calico-system namespace are running
+      kubectl get pods -n calico-system
+      kubectl get pods --all-namespaces
+      kubectl get nodes
+5. On worker nodes, add the following command :
+# get worker node commands to run to join additional nodes into cluster
+kubeadm token create --print-join-command
+######################################################################################
+
+
+### ONLY ON WORKER nodes
+Run the command from the token create output above
+
+### Tag nodes for worker
+kubectl label node worker1 node-role.kubernetes.io/worker=worker
+kubectl label node worker2 node-role.kubernetes.io/worker=worker

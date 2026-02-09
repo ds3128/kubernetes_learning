@@ -1,0 +1,34 @@
+# kubectl commands : 
+
+    - apply/create : create one or more resources
+    - run : run a pod throught an image
+    - explain : resource docummentation
+    - delete : delete one or more resources
+    - get : display resources  
+    - describe : display informations about resources 
+    - exec : run a command inside the container
+    - logs : display container logs 
+
+# ressources where we will make an operation :
+    - nodes
+    - pods
+    - services
+
+# Output : 
+    - wide : display more informations about Output
+    - yaml : API object formated to JSON
+    - json : API object formated to JSON
+    - dry-run : display an object without to send at the API server
+
+# kubectl command :
+
+kubectl [command] [type] [name] [flags]
+
+example : kubectl get pods pod1 --output=yaml
+          kubectl create deployment nginx --image=nginx
+
+root@master:/etc/kubernetes# kubectl cluster-info
+Kubernetes control plane is running at https://192.168.1.94:6443
+CoreDNS is running at https://192.168.1.94:6443/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
+
+To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.

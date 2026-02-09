@@ -1,0 +1,29 @@
+# All the thing about CKA certification
+vm_config:
+  - name: Master node
+    ssh: ssh master@192.168.1.94
+  - name: Worker 1
+    ssh: ssh worker1@192.168.1.96
+  - name: Worker 2
+    ssh: ssh worker2@192.168.1.97
+  - name: NFS node
+    ssh: ssh nfs-node@192.168.1.93
+
+# How to install Kubernetes on VM 
+kubernetes_installation:
+  master_node:
+    description: Install the control plane to manage the clusters of our environment
+    control_plane_components:
+      - API Server
+      - ETCD
+      - Scheduler
+      - Controller
+    worker_node_components:
+      - Kubelet
+      - Kube-proxy
+      - CRI (Command Runtime Interface)
+      - Core DNS
+    note: Control plane and worker node understand command as binary data
+    api_server:
+      description: Talk about API Server
+      details: []

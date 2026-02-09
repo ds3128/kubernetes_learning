@@ -1,0 +1,11 @@
+All the Kubernetes ports necessary for cluster communication and operation are listed below. These ports must be open and properly configured in your network to ensure the smooth functioning of your Kubernetes cluster.
+
+sudo ufw allow 6443/tcp  # Kubernetes API server
+sudo ufw allow 2379:2380/tcp  # etcd server client API
+sudo ufw allow 10250/tcp  # Kubelet API
+sudo ufw allow 10259/tcp  # kube-scheduler
+sudo ufw allow 10257/tcp  # kube-controller-manager
+sudo ufw reload
+ufw status
+
+

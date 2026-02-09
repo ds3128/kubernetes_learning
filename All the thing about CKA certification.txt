@@ -1,0 +1,184 @@
+# All the thing about CKA certification
+vm_config:
+  - name: Master node
+    ssh: ssh master@192.168.1.94
+  - name: Worker 1
+    ssh: ssh worker1@192.168.1.96
+  - name: Worker 2
+    ssh: ssh worker2@192.168.1.97
+  - name: NFS node
+    ssh: ssh nfs-node@192.168.1.93
+
+ÉTAPE 1 : Configuration commune à tous les nœuds
+
+1.1 Configuration réseau et système
+
+# Ajouter les entrées DNS locales
+printf "\n192.168.1.94 master\n192.168.1.96 worker1\n192.168.1.97 worker2\n\n" >> /etc/hosts
+
+# Charger les modules kernel requis
+printf "overlay\nbr_netfilter\n" >> /etc/modules-load.d/containerd.conf
+modprobe overlay
+modprobe br_netfilter
+
+# Configuration des paramètres réseau
+printf "net.bridge.bridge-nf-call-iptables = 1\nnet.ipv4.ip_forward = 1\nnet.bridge.bridge-nf-call-ip6tables = 1\n" >> /etc/sysctl.d/99-kubernetes-cri.conf
+sysctl --system
+
+1.2 Installation de containerd
+
+# Télécharger et installer containerd
+wget https://github.com/containerd/containerd/releases/download/v2.1.4/containerd-2.1.4-linux-amd64.tar.gz -P /tmp/
+tar Cxzvf /usr/local /tmp/containerd-2.1.4-linux-amd64.tar.gz
+
+# Configurer le service systemd
+wget https://raw.githubusercontent.com/containerd/containerd/main/containerd.service -P /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now containerd
+
+# Installer runc
+wget https://github.com/opencontainers/runc/releases/download/v1.3.0/runc.amd64 -P /tmp/ && install -m 755 /tmp/runc.amd64 /usr/local/sbin/runc
+
+# Installer les plugins CNI
+wget https://github.com/containernetworking/plugins/releases/download/v1.7.1/cni-plugins-linux-amd64-v1.7.1.tgz -P /tmp/
+mkdir -p /opt/cni/bin
+tar Cxzvf /opt/cni/bin /tmp/cni-plugins-linux-amd64-v1.7.1.tgz
+
+1.3 Configuration de containerd
+
+# Générer la configuration par défaut
+mkdir -p /etc/containerd
+containerd config default | tee /etc/containerd/config.toml
+
+# Modifier la configuration (activer SystemdCgroup)
+sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
+systemctl restart containerd
+
+1.4 Désactivation du swap
+
+# Désactiver temporairement
+swapoff -a
+
+# Désactiver définitivement (éditer /etc/fstab et commenter la ligne swap)
+sed -i '/swap/s/^/#/' /etc/fstab
+
+1.5 Installation de Kubernetes
+
+# Ajouter le dépôt Kubernetes
+apt-get update && apt-get install -y apt-transport-https ca-certificates curl gpg
+mkdir -p -m 755 /etc/apt/keyrings
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.33/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.33/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+
+# Mettre à jour et installer
+apt-get update
+apt-get install -y kubelet=1.33.4-1.1 kubeadm=1.33.4-1.1 kubectl=1.33.4-1.1
+apt-mark hold kubelet kubeadm kubectl
+
+# Vérifier que le swap est désactivé
+free -m
+
+# Redémarrer
+reboot
+
+ÉTAPE 2 : Configuration du nœud MASTER uniquement
+
+2.1 Initialiser le cluster
+
+# Exécuter en tant que root (sudo su)
+kubeadm init --pod-network-cidr 10.10.0.0/16 --kubernetes-version 1.33.4 --node-name master
+
+# Configurer l'accès kubectl pour l'utilisateur courant
+mkdir -p $HOME/.kube
+cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+chown $(id -u):$(id -g) $HOME/.kube/config
+
+# Pour root également
+export KUBECONFIG=/etc/kubernetes/admin.conf
+
+2.2 Installer Calico CNI
+
+# Installer l'opérateur Tigera (Calico)
+kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.30.2/manifests/tigera-operator.yaml
+
+# Télécharger et configurer les ressources personnalisées
+wget https://raw.githubusercontent.com/projectcalico/calico/v3.30.2/manifests/custom-resources.yaml
+
+# Éditer le CIDR pour qu'il corresponde à celui utilisé dans kubeadm init
+sed -i 's|cidr:.*|cidr: 10.10.0.0/16|' custom-resources.yaml
+
+# Appliquer la configuration
+kubectl apply -f custom-resources.yaml
+
+2.3 Vérifier l'installation
+
+# Vérifier les pods Calico
+kubectl get pods -n calico-system
+
+# Vérifier tous les pods
+kubectl get pods --all-namespaces
+
+# Vérifier les nœuds
+kubectl get nodes
+
+2.4 Générer la commande pour joindre les workers
+
+# Générer la commande d'adhésion (à exécuter sur les workers)
+kubeadm token create --print-join-command
+
+# Note : Copier la commande de sortie, elle ressemblera à :
+# kubeadm join 192.168.1.94:6443 --token <token> --discovery-token-ca-cert-hash sha256:<hash>
+
+ÉTAPE 3 : Configuration des nœuds WORKER uniquement
+
+# Exécuter la commande générée par le master (à adapter avec votre propre commande)
+kubeadm join 192.168.1.94:6443 --token <votre_token> --discovery-token-ca-cert-hash sha256:<votre_hash>
+
+
+ÉTAPE 4 : Configuration finale (sur le MASTER)
+
+
+4.1 Étiqueter les nœuds workers
+
+# Attendre que les nœuds apparaissent (peut prendre quelques minutes)
+kubectl get nodes
+
+# Étiqueter les nœuds workers
+kubectl label node worker1 node-role.kubernetes.io/worker=worker
+kubectl label node worker2 node-role.kubernetes.io/worker=worker
+
+# Vérifier les étiquettes
+kubectl get nodes --show-labels
+
+4.2 Vérification finale
+
+# Vérifier que tous les nœuds sont prêts
+kubectl get nodes
+
+# Vérifier que tous les pods système sont en cours d'exécution
+kubectl get pods --all-namespaces
+
+
+
+#Si une config avait ete applique sur les workers, appliquer ces commandes pour reset la config sur le Noeud.
+
+# 1. Réinitialiser la configuration kubeadm
+sudo kubeadm reset -f
+
+# 2. Nettoyer les fichiers restants
+sudo rm -rf /etc/kubernetes/
+sudo rm -rf /var/lib/kubelet/
+sudo rm -rf /var/lib/etcd/
+
+# 3. Arrêter les services kubelet
+sudo systemctl stop kubelet
+sudo systemctl disable kubelet
+
+# 4. Libérer le port 10250
+sudo netstat -tulpn | grep 10250  # Voir quel processus utilise le port
+sudo kill -9 <PID>  # Remplacer <PID> par le processus trouvé
+
+# 5. Réessayer le join
+sudo kubeadm join 192.168.1.94:6443 \
+  --token rit2y3.aleymwbct4g0250d \
+  --discovery-token-ca-cert-hash sha256:bd3e3ee75c42fee0b63977210cde858a248af63938e290c3bae81b6427621bb7

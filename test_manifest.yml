@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: # This section defines the metadata for the deployment
+  name: test-deployment
+spec:
+  replicas: 3
+  selector: # This section defines the label selector for the deployment
+    matchLabels:
+      app: test-deployment
+  template: # This section defines the pod template for the deployment
+    metadata:
+      labels: # This section defines the labels for the pod template
+        app: test-deployment
+    spec:
+      containers: # This section defines the container specifications for the pod template
+      - name: test-container
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+        resources: # This section defines the resource requests and limits for the container
+          requests:
+            memory: "64Mi"
+            cpu: "250m"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"

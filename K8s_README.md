@@ -10,30 +10,12 @@ Versions are managed automatically via variables.
 ``` bash
 export K8S_VERSION="1.35.0-1.1"
 export K8S_MAJOR="v1.35.0"
+export K8S_MAJOR_0="v1.35"
 export CONTAINERD_VERSION="2.2.1"
 export RUNC_VERSION="1.4.0"
 export CNI_VERSION="1.9.0"
 export CALICO_VERSION="3.31.3"
 export POD_CIDR="10.10.0.0/16"
-```
-
-``` bash
-# Kubernetes version (dernière stable GA)
-K8S_VERSION="1.35.0-1.1"
-K8S_MAJOR="v1.35.0"
-
-# Runtime / dependencies
-CONTAINERD_VERSION="2.2.1"
-RUNC_VERSION="1.4.0"
-CNI_VERSION="1.9.0"
-CALICO_VERSION="3.31.3"
-
-# Network
-POD_CIDR="10.10.0.0/16" (tunnel that we will use to create communication between pod network
-and host network to have external access)
-MASTER_NAME="master"
-WORKER1_NAME="worker1"
-WORKER2_NAME="worker2"
 ```
 
 ------------------------------------------------------------------------
@@ -154,9 +136,9 @@ Also remove swap entry from `nano /etc/fstab`.
 apt-get update && apt-get install -y apt-transport-https ca-certificates curl gpg
 mkdir -p -m 755 /etc/apt/keyrings
 
-curl -fsSL https://pkgs.k8s.io/core:/stable:/${K8S_MAJOR}/deb/Release.key  | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+curl -fsSL https://pkgs.k8s.io/core:/stable:/${K8S_MAJOR_0}/deb/Release.key  | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 
-echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/${K8S_MAJOR}/deb/ /"  | tee /etc/apt/sources.list.d/kubernetes.list
+echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/${K8S_MAJOR_0}/deb/ /"  | tee /etc/apt/sources.list.d/kubernetes.list
 
 apt-get update
 apt-get install -y kubelet=${K8S_VERSION} kubeadm=${K8S_VERSION} kubectl=${K8S_VERSION}
@@ -334,3 +316,43 @@ kubectl logs nginx-app-574b8c4d9c-tncc8
 kubectl exec -it nginx-app-574b8c4d9c-tncc8 -- /bin/sh
 
 kubectl describe replicaset nginx-app-574b8c4d9c-tncc8
+
+# In this we will talk about controller :
+
+Controller in Kubernetes
+
+How controller works
+
+    - desired state/declarative configuration : concern code creation on manifest file and desired state is that we wish for deployment of our app
+    - controller : look cluster state in her globality
+    - API server : central core of kubernetes informations
+    - Controller manager : 
+        * kube-controller-manager : responsible off execution of core controller  and maintain the cluster in desired state. there is only one kube-controller-manager on any cluster
+        * Cloud-controller-manger : 
+            * pod controller :
+                + replicaset : deploy and maintain a define pod number.
+                + deamonset : 
+                + deployment : mise a jour declarative sur le replicaset, orchestration et gestion de l'etat des applications
+                + statefulset : 
+                + Job : create one or more pod and check that one end with success
+                + CronJob : manage job 
+            * others resources controller
+                + Node controller : controle l'etat des noeud
+                + services controller : 
+                + Endpoint controller : gere les services en fonction des selecteur de label definis
+                + namespace controller : 
+
+# Create deployment
+
+    - declarative method :
+
+    - imperative method : 
+        * kubectl create deployment hello-world --image=gcr.io/google-samples/hello-app:1.0
+        * kubectl scale deploymeny hello-world --replica=5
+
+    kubectl get pods --show-labels
+
+    kubectl describe replicasets
+
+# Deployment update - Controller operations
+

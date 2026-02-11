@@ -293,29 +293,29 @@ kubectl apply -f test_manifest.yaml
 ```
 
 # Appliquer le manifeste
-kubectl apply -f deployment.yaml
+`kubectl apply -f deployment.yaml`
 
 # Voir les pods créés
-kubectl get pods
+`kubectl get pods`
 
 # Vérifier le déploiement
-kubectl get deployment test-deployment
+`kubectl get deployment test-deployment`
 
 # Supprimer
-kubectl delete -f deployment.yaml
+`kubectl delete -f deployment.yaml`
 
 # General command 
-kubectl create deployment NAME --image=image -- [COMMAND] [args...] [options]
+`kubectl create deployment NAME --image=image -- [COMMAND] [args...] [options]`
 
 # use this command to get the app open on worker node
-sudo crictl --runtime-endpoint unix:///run/containerd/containerd.sock ps
+`sudo crictl --runtime-endpoint unix:///run/containerd/containerd.sock ps`
 
 
-kubectl logs nginx-app-574b8c4d9c-tncc8
+`kubectl logs nginx-app-574b8c4d9c-tncc8`
 
-kubectl exec -it nginx-app-574b8c4d9c-tncc8 -- /bin/sh
+`kubectl exec -it nginx-app-574b8c4d9c-tncc8 -- /bin/sh`
 
-kubectl describe replicaset nginx-app-574b8c4d9c-tncc8
+`kubectl describe replicaset nginx-app-574b8c4d9c-tncc8`
 
 # In this we will talk about controller :
 
@@ -355,4 +355,73 @@ How controller works
     kubectl describe replicasets
 
 # Deployment update - Controller operations
+
+   - `kubectl set image deployment hello-world hello-world=hello-app:2.0`
+   - `kubectl set image deployment hello-world hello-world=hello-app:2.0 --record`
+   - record sera utilise pour capturer les informations des metadonnees durant la mise en service de la nouvelle version.
+   - `kubectl edit deployment hello-world`
+   - `kubectl apply -f deployment.yaml --record`
+
+# Check deployment status.
+
+   - `kubectl rollout status deployment [name]`
+   - `kubectl describe deployment [name]`
+
+   - During the deployment, we can have more status such as :
+    * complete -all update work is finished
+    * Progressing -update in flight
+    * Failed -update could not complete
+
+# Use deployment to update state 
+
+    * update strategy
+    * pause deploy to fix problem
+    * rollback to an backward replica
+    * restart and deployment 
+
+Tools use to control deployment : 
+    * `RollingUpdate` (Defaut) : manager the transition between the old(delete old progressively) replicaset and the new replicaset
+        - `maxUnavailable` : define the max replic that can be unavailable during the update
+        - `maxSurge` : define the additional max replic available during the update 
+    * `Recreate` : close all current pod to the set of replicaset 
+
+# How to rollback a deployment 
+
+``` bash
+sudo kubectl rollout history deployment [name]
+
+sudo kubectl rollout history deployment [name] revision=1
+
+sudo kubectl rollout undo deployment [name]
+
+sudo kubectl rollout undo deployment [name] revision=1
+```
+
+# Deployment status 
+
+``` bash
+sudo kubectl status deployment [name]
+
+sudo kubectl get events --sort-by='.lastTimestamp'
+```
+
+# Control update using les strategies de sonde
+
+sudo kubectl apply -f deployment.prob-1.yaml 
+
+sudo kubectl apply -f deployment.prob-2.yaml
+
+sudo kubectl rollout status deployment hello-world
+
+sudo kubectl describe pod hello-world-f4d4b56d5-b22vv
+
+sudo kubectl rollout restart deployment nginx
+
+# Mise a l'echelle d'un deploiement
+
+ - Manuel
+    * kubectl scale deployment hello-world --replicas=20
+    * kubeclt apply -f deployment.yaml
+
+ - Automatique (autoscaling)
 
